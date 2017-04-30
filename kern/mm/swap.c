@@ -79,6 +79,7 @@ swap_set_unswappable(struct mm_struct *mm, uintptr_t addr)
 
 volatile unsigned int swap_out_num=0;
 
+// 从mm对应的区域中释放n个page到swap分区
 int
 swap_out(struct mm_struct *mm, int n, int in_tick)
 {
@@ -89,6 +90,7 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
           //struct Page **ptr_page=NULL;
           struct Page *page;
           // cprintf("i %d, SWAP: call swap_out_victim\n",i);
+          // 找到mm中可以转换到swap分区的page返回
           int r = sm->swap_out_victim(mm, &page, in_tick);
           if (r != 0) {
                     cprintf("i %d, swap_out: call swap_out_victim failed\n",i);
@@ -100,8 +102,10 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
           
           v=page->pra_vaddr; 
           pte_t *ptep = get_pte(mm->pgdir, v, 0);
+          // 确保PTE_P位为1
           assert((*ptep & PTE_P) != 0);
 
+          // 将page的数据写到swap分区中
           if (swapfs_write( (page->pra_vaddr/PGSIZE+1)<<8, page) != 0) {
                     cprintf("SWAP: failed to save\n");
                     sm->map_swappable(mm, v, page, 0);
@@ -109,6 +113,7 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
           }
           else {
                     cprintf("swap_out: i %d, store page in vaddr 0x%x to disk swap entry %d\n", i, v, page->pra_vaddr/PGSIZE+1);
+                    // 写入成功，释放page
                     *ptep = (page->pra_vaddr/PGSIZE+1)<<8;
                     free_page(page);
           }

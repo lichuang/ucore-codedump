@@ -53,6 +53,7 @@ mm_create(void) {
         if (swap_init_ok) swap_init_mm(mm);
         else mm->sm_priv = NULL;
         
+        // 初始化swap相关的数据结构
         set_mm_count(mm, 0);
         sem_init(&(mm->mm_sem), 1);
     }    
@@ -84,6 +85,7 @@ find_vma(struct mm_struct *mm, uintptr_t addr) {
                 list_entry_t *list = &(mm->mmap_list), *le = list;
                 while ((le = list_next(le)) != list) {
                     vma = le2vma(le, list_link);
+                    // 根据地址范围来查找vma结构体
                     if (vma->vm_start<=addr && addr < vma->vm_end) {
                         found = 1;
                         break;
@@ -117,14 +119,15 @@ insert_vma_struct(struct mm_struct *mm, struct vma_struct *vma) {
     list_entry_t *list = &(mm->mmap_list);
     list_entry_t *le_prev = list, *le_next;
 
-        list_entry_t *le = list;
-        while ((le = list_next(le)) != list) {
-            struct vma_struct *mmap_prev = le2vma(le, list_link);
-            if (mmap_prev->vm_start > vma->vm_start) {
-                break;
-            }
-            le_prev = le;
+    // 在mm管理的所有vma结构体中线性查找这个vma插入的合适位置
+    list_entry_t *le = list;
+    while ((le = list_next(le)) != list) {
+        struct vma_struct *mmap_prev = le2vma(le, list_link);
+        if (mmap_prev->vm_start > vma->vm_start) {
+            break;
         }
+        le_prev = le;
+    }
 
     le_next = list_next(le_prev);
 
@@ -392,6 +395,7 @@ volatile unsigned int pgfault_num=0;
  *         -- The U/S flag (bit 2) indicates whether the processor was executing at user mode (1)
  *            or supervisor mode (0) at the time of the exception.
  */
+// 处理页异常的主函数
 int
 do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
     int ret = -E_INVAL;
@@ -400,6 +404,7 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
 
     pgfault_num++;
     //If the addr is in the range of a mm's vma?
+    // 如果地址返回不对，报错返回
     if (vma == NULL || vma->vm_start > addr) {
         cprintf("not valid addr %x, and  can not find it in vma\n", addr);
         goto failed;
@@ -407,17 +412,21 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
     //check the error_code
     switch (error_code & 3) {
     default:
+        // 3：表示写且页面存在
             /* error code flag : default is 3 ( W/R=1, P=1): write, present */
     case 2: /* error code flag : (W/R=1, P=0): write, not present */
+        // 2：表示写但是页面不存在
         if (!(vma->vm_flags & VM_WRITE)) {
             cprintf("do_pgfault failed: error code flag = write AND not present, but the addr's vma cannot write\n");
             goto failed;
         }
         break;
     case 1: /* error code flag : (W/R=0, P=1): read, present */
+        // 1：读而且页面存在，也就是尝试去读一个没有读权限的地址
         cprintf("do_pgfault failed: error code flag = read AND present\n");
         goto failed;
     case 0: /* error code flag : (W/R=0, P=0): read, not present */
+        // 0：读且页面不存在
         if (!(vma->vm_flags & (VM_READ | VM_EXEC))) {
             cprintf("do_pgfault failed: error code flag = read AND not present, but the addr's vma cannot read or exec\n");
             goto failed;
@@ -429,10 +438,14 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
      * THEN
      *    continue process
      */
-    uint32_t perm = PTE_U;
+    // 来到这里只有三种情况：
+    // 1. 写一个已经存在的地址 2. 有权限写一个不存在的地址 3. 有权限读一个不存在的地址
+    // 保存标志位
+    uint32_t perm = PTE_U;  // 用户态
     if (vma->vm_flags & VM_WRITE) {
-        perm |= PTE_W;
+        perm |= PTE_W;  // 写操作
     }
+    // 根据页的地址进行对齐操作
     addr = ROUNDDOWN(addr, PGSIZE);
 
     ret = -E_NO_MEM;
@@ -499,18 +512,22 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
 #endif
     // try to find a pte, if pte's PT(Page Table) isn't existed, then create a PT.
     // (notice the 3th parameter '1')
+    // 注意get_pte返回NULL，和ptep指针为NULL是两码事
+    // 前者表示分配就是失败了，后者表示没有对应的物理页面
     if ((ptep = get_pte(mm->pgdir, addr, 1)) == NULL) {
         cprintf("get_pte in do_pgfault failed\n");
         goto failed;
     }
     
     if (*ptep == 0) { // if the phy addr isn't exist, then alloc a page & map the phy addr with logical addr
+        // 物理页面不存在，尝试去分配一个
         if (pgdir_alloc_page(mm->pgdir, addr, perm) == NULL) {
             cprintf("pgdir_alloc_page in do_pgfault failed\n");
             goto failed;
         }
     }
     else {
+        // 物理页面存在的情况
         struct Page *page=NULL;
         cprintf("do pgfault: ptep %x, pte %x\n",ptep, *ptep);
         if (*ptep & PTE_P) {
@@ -520,6 +537,7 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
             panic("error write a non-writable pte");
             //page = pte2page(*ptep);
         } else{
+           // 到这里说明页面存在swap分区上,所以要调用swap相关的函数从swap分区上将页面数据调入内存
            // if this pte is a swap entry, then load data from disk to a page with phy addr
            // and call page_insert to map the phy addr with logical addr
            if(swap_init_ok) {               
@@ -534,8 +552,11 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
             goto failed;
            }
        } 
+       // 插入page数据结构
        page_insert(mm->pgdir, page, addr, perm);
+       // 置为可以swap的page
        swap_map_swappable(mm, addr, page, 1);
+       // 保存用于页面置换算法的虚拟地址
        page->pra_vaddr = addr;
    }
    ret = 0;

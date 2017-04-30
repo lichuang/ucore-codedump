@@ -34,6 +34,7 @@ static int
 _fifo_init_mm(struct mm_struct *mm)
 {     
      list_init(&pra_list_head);
+     // sm_priv指向链表头部指针
      mm->sm_priv = &pra_list_head;
      //cprintf(" mm->sm_priv %x in fifo_init_mm\n",mm->sm_priv);
      return 0;
@@ -41,9 +42,11 @@ _fifo_init_mm(struct mm_struct *mm)
 /*
  * (3)_fifo_map_swappable: According FIFO PRA, we should link the most recent arrival page at the back of pra_list_head qeueue
  */
+// 标记一个page为可以swap的
 static int
 _fifo_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int swap_in)
 {
+    // 得到链表头和链表指针，把指针加入回收链表即可
     list_entry_t *head=(list_entry_t*) mm->sm_priv;
     list_entry_t *entry=&(page->pra_page_link);
  
@@ -61,19 +64,23 @@ _fifo_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int
 static int
 _fifo_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick)
 {
+     // 拿到链表头
      list_entry_t *head=(list_entry_t*) mm->sm_priv;
-         assert(head != NULL);
+     assert(head != NULL);
      assert(in_tick==0);
      /* Select the victim */
      /*LAB3 EXERCISE 2: YOUR CODE*/ 
      //(1)  unlink the  earliest arrival page in front of pra_list_head qeueue
      //(2)  set the addr of addr of this page to ptr_page
      /* Select the tail */
+     // 取出队尾的元素做为首先要淘汰的page
      list_entry_t *le = head->prev;
      assert(head!=le);
+     // 根据链表元素拿到Page结构体指针
      struct Page *p = le2page(le, pra_page_link);
      list_del(le);
      assert(p !=NULL);
+     // 保存到返回值中
      *ptr_page = p;
      return 0;
 }

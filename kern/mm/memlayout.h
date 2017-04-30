@@ -132,7 +132,9 @@ struct Page {
     unsigned int property;          // used in buddy system, stores the order (the X in 2^X) of the continuous memory block
     int zone_num;                   // used in buddy system, the No. of zone which the page belongs to
     list_entry_t page_link;         // free list link
+    // 页面置换算法中的链表指针
     list_entry_t pra_page_link;     // used for pra (page replace algorithm)
+    // 保存用于页面置换算法的虚拟地址
     uintptr_t pra_vaddr;            // used for pra (page replace algorithm)
 };
 

@@ -12,11 +12,15 @@
 struct mm_struct;
 
 // the virtual continuous memory area(vma)
+// 管理虚拟地址的结构体
 struct vma_struct {
     struct mm_struct *vm_mm; // the set of vma using the same PDT 
+    // 虚拟地址的起始地址
     uintptr_t vm_start;      //    start addr of vma    
+    // 虚拟地址的结束地址
     uintptr_t vm_end;        // end addr of vma
     uint32_t vm_flags;       // flags of vma
+    // 同一个mm管理的vma结构体串联起来的链表，按照起始地址进行排序
     list_entry_t list_link;  // linear list link which sorted by start addr of vma
 };
 
@@ -34,11 +38,11 @@ struct mm_struct {
     struct vma_struct *mmap_cache; // current accessed vma, used for speed purpose
     pde_t *pgdir;                  // the PDT of these vma
     int map_count;                 // the count of these vma
+    // 用于swap管理的私有数据，其实用于指向链表头部
     void *sm_priv;                 // the private data for swap manager
     int mm_count;                  // the number ofprocess which shared the mm
     semaphore_t mm_sem;            // mutex for using dup_mmap fun to duplicat the mm 
     int locked_by;                 // the lock owner process's pid
-
 };
 
 struct vma_struct *find_vma(struct mm_struct *mm, uintptr_t addr);
