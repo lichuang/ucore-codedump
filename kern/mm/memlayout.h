@@ -67,7 +67,9 @@
  * */
 
 /* All physical memory mapped at this address */
+// 内核虚拟地址的起始地址
 #define KERNBASE            0xC0000000
+// 内核最大物理内存尺寸
 #define KMEMSIZE            0x38000000                  // the maximum amount of physical memory
 #define KERNTOP             (KERNBASE + KMEMSIZE)
 
@@ -112,6 +114,7 @@ typedef pte_t swap_entry_t; //the pte can also be a swap entry
 #define E820_ARM            1       // address range memory
 #define E820_ARR            2       // address range reserved
 
+// 探索完的物理内存大小格式
 struct e820map {
     int nr_map;
     struct {
@@ -129,6 +132,7 @@ struct e820map {
 struct Page {
     int ref;                        // page frame's reference counter
     uint32_t flags;                 // array of flags that describe the status of the page frame
+    // 跟buddy算法相关的字段
     unsigned int property;          // used in buddy system, stores the order (the X in 2^X) of the continuous memory block
     int zone_num;                   // used in buddy system, the No. of zone which the page belongs to
     list_entry_t page_link;         // free list link
@@ -139,7 +143,9 @@ struct Page {
 };
 
 /* Flags describing the status of a page frame */
+// 保留页面，只给内核使用
 #define PG_reserved                 0       // the page descriptor is reserved for kernel or unusable
+// 这个表示Page结构体中的property字段有效
 #define PG_property                 1       // the member 'property' is valid
 
 #define SetPageReserved(page)       set_bit(PG_reserved, &((page)->flags))
@@ -154,6 +160,7 @@ struct Page {
     to_struct((le), struct Page, member)
 
 /* free_area_t - maintains a doubly linked list to record free (unused) pages */
+// 用于管理空闲page的数据结构
 typedef struct {
     list_entry_t free_list;         // the list header
     unsigned int nr_free;           // # of free pages in this free list

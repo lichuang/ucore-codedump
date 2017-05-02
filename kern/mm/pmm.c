@@ -202,9 +202,11 @@ nr_free_pages(void) {
 /* pmm_init - initialize the physical memory management */
 static void
 page_init(void) {
+    // 根据探索的物理内存结构进行物理Page的初始化
     struct e820map *memmap = (struct e820map *)(0x8000 + KERNBASE);
     uint64_t maxpa = 0;
 
+    // 首先计算最大物理内存
     cprintf("e820map:\n");
     int i;
     for (i = 0; i < memmap->nr_map; i ++) {
@@ -217,21 +219,27 @@ page_init(void) {
             }
         }
     }
+    // 不能超过KMEMSIZE
     if (maxpa > KMEMSIZE) {
         maxpa = KMEMSIZE;
     }
 
     extern char end[];
 
+    // 根据前面的物理内存大小来计算Page数组大小
     npage = maxpa / PGSIZE;
+    // Page数组的起始地址是第一个比end大并且与PGSIZE对齐的地址
     pages = (struct Page *)ROUNDUP((void *)end, PGSIZE);
 
+    // 将这些page设置为只给内核使用
     for (i = 0; i < npage; i ++) {
         SetPageReserved(pages + i);
     }
 
+    // freemem指向后续可用内存的起始位置
     uintptr_t freemem = PADDR((uintptr_t)pages + sizeof(struct Page) * npage);
 
+    // 将剩余的其他内存加入到free list中
     for (i = 0; i < memmap->nr_map; i ++) {
         uint64_t begin = memmap->map[i].addr, end = begin + memmap->map[i].size;
         if (memmap->map[i].type == E820_ARM) {
@@ -252,6 +260,7 @@ page_init(void) {
     }
 }
 
+// 使用分页机制
 static void
 enable_paging(void) {
     lcr3(boot_cr3);
@@ -273,11 +282,14 @@ static void
 boot_map_segment(pde_t *pgdir, uintptr_t la, size_t size, uintptr_t pa, uint32_t perm) {
     assert(PGOFF(la) == PGOFF(pa));
     size_t n = ROUNDUP(size + PGOFF(la), PGSIZE) / PGSIZE;
+    // 计算对齐后的线性地址和物理地址
     la = ROUNDDOWN(la, PGSIZE);
     pa = ROUNDDOWN(pa, PGSIZE);
+    // 遍历线性地址
     for (; n > 0; n --, la += PGSIZE, pa += PGSIZE) {
         pte_t *ptep = get_pte(pgdir, la, 1);
         assert(ptep != NULL);
+        // 将线性地址对应的页表项设置到对应的物理地址和权限
         *ptep = pa | PTE_P | perm;
     }
 }

@@ -54,6 +54,9 @@ void print_pgdir(void);
  * where the machine's maximum 256MB of physical memory is mapped and returns the
  * corresponding physical address.  It panics if you pass it a non-kernel virtual address.
  * */
+// 传入内核虚拟地址，返回对应的虚拟地址
+// 假如传入的是一块非内核的虚拟地址，将panic
+// 原理在于：将该虚拟地址 - 内核虚拟地址的起始地址(KERNBASE)
 #define PADDR(kva) ({                                                   \
             uintptr_t __m_kva = (uintptr_t)(kva);                       \
             if (__m_kva < KERNBASE) {                                   \

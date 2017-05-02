@@ -65,23 +65,30 @@ default_init(void) {
     nr_free = 0;
 }
 
+// 用于将base开始的n个page置为可用，并且加入到free list
 static void
 default_init_memmap(struct Page *base, size_t n) {
     assert(n > 0);
     struct Page *p = base;
     for (; p != base + n; p ++) {
+        // assert一下不是给内核使用的page
         assert(PageReserved(p));
         p->flags = 0;
+        // 设置为给内核使用的page
         SetPageProperty(p);
         p->property = 0;
+        // 引用计数为0
         set_page_ref(p, 0);
+        // 加入free list中，注意是加在前面
         list_add_before(&free_list, &(p->page_link));
     }
     nr_free += n;
     //first block
+    // 这一块内存的起始page的property字段保存的这一大块page的数量
     base->property = n;
 }
 
+// 分配n个page返回
 static struct Page *
 default_alloc_pages(size_t n) {
     assert(n > 0);
@@ -91,19 +98,24 @@ default_alloc_pages(size_t n) {
     list_entry_t *le, *len;
     le = &free_list;
 
+    // 顺序查找，因为free链表是按照从小到大的顺序组织的
     while((le=list_next(le)) != &free_list) {
       struct Page *p = le2page(le, page_link);
+      // 满足要求
       if(p->property >= n){
         int i;
         for(i=0;i<n;i++){
           len = list_next(le);
           struct Page *pp = le2page(le, page_link);
+          // 置为给内核使用的page
           SetPageReserved(pp);
           ClearPageProperty(pp);
+          // 从链表中删除
           list_del(le);
           le = len;
         }
         if(p->property>n){
+          // 相应的要减去分配的page数量
           (le2page(le,page_link))->property = p->property - n;
         }
         ClearPageProperty(p);
@@ -122,6 +134,7 @@ default_free_pages(struct Page *base, size_t n) {
 
     list_entry_t *le = &free_list;
     struct Page * p;
+    // 这里也是为了让page按照地址大小排列
     while((le=list_next(le)) != &free_list) {
       p = le2page(le, page_link);
       if(p>base){

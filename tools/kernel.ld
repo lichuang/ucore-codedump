@@ -1,12 +1,15 @@
 /* Simple linker script for the ucore kernel.
    See the GNU ld 'info' manual ("info ld") to learn the syntax. */
 
+/* ELF文件结构 */
 OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
+/* 体系结构 */
 OUTPUT_ARCH(i386)
 ENTRY(kern_entry)
 
 SECTIONS {
     /* Load the kernel at this address: "." means the current address */
+    /* 加载内核时的虚拟地址 */
     . = 0xC0100000;
 
     .text : {

@@ -70,6 +70,7 @@ list_entry_t proc_list;
 #define pid_hashfn(x)       (hash32(x, HASH_SHIFT))
 
 // has list for process set based on pid
+// 根据pid进行组织的hash list数组
 static list_entry_t hash_list[HASH_LIST_SIZE];
 
 // idle proc
@@ -182,6 +183,7 @@ remove_links(struct proc_struct *proc) {
 }
 
 // get_pid - alloc a unique pid for process
+// 分配进程系统唯一的pid
 static int
 get_pid(void) {
     static_assert(MAX_PID > MAX_PROCESS);
@@ -255,6 +257,7 @@ unhash_proc(struct proc_struct *proc) {
 }
 
 // find_proc - find proc frome proc hash_list according to pid
+// 根据进程pid查找进程结构体，其实就是在hash list数组中查找
 struct proc_struct *
 find_proc(int pid) {
     if (0 < pid && pid < MAX_PID) {
@@ -272,6 +275,7 @@ find_proc(int pid) {
 // kernel_thread - create a kernel thread using "fn" function
 // NOTE: the contents of temp trapframe tf will be copied to 
 //       proc->tf in do_fork-->copy_thread function
+// 创建内核进程
 int
 kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) {
     struct trapframe tf;

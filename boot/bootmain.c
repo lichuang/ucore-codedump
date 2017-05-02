@@ -104,6 +104,9 @@ bootmain(void) {
 
     // call the entry point from the ELF header
     // note: does not return
+    // 调用这个ELF文件的entry函数
+    // 这个函数在tools/kernel.ld中指定，为init/entry.S中的kern_entry函数
+    // 为什么这里的地址需要 & 0xFFFFFF
     ((void (*)(void))(ELFHDR->e_entry & 0xFFFFFF))();
 
 bad:
