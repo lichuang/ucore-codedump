@@ -207,6 +207,7 @@ struct taskstate {
 #define PTX(la) ((((uintptr_t)(la)) >> PTXSHIFT) & 0x3FF)
 
 // page number field of address
+// 传入物理地址，返回这个地址对应的Page指针在Page数组中的索引
 #define PPN(la) (((uintptr_t)(la)) >> PTXSHIFT)
 
 // offset in page
@@ -216,7 +217,9 @@ struct taskstate {
 #define PGADDR(d, t, o) ((uintptr_t)((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
 
 // address in page table or page directory entry
+// 根据PTE得到物理地址
 #define PTE_ADDR(pte)   ((uintptr_t)(pte) & ~0xFFF)
+// 根据PDE得到物理地址
 #define PDE_ADDR(pde)   PTE_ADDR(pde)
 
 /* page directory and page table constants */

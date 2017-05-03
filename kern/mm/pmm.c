@@ -297,6 +297,7 @@ boot_map_segment(pde_t *pgdir, uintptr_t la, size_t size, uintptr_t pa, uint32_t
 //boot_alloc_page - allocate one page using pmm->alloc_pages(1) 
 // return value: the kernel virtual address of this allocated page
 //note: this function is used to get the memory for PDT(Page Directory Table)&PT(Page Table)
+// 注意这个函数最后返回的是内核虚拟地址
 static void *
 boot_alloc_page(void) {
     struct Page *p = alloc_page();
@@ -325,8 +326,10 @@ pmm_init(void) {
     check_alloc_page();
 
     // create boot_pgdir, an initial page directory(Page Directory Table, PDT)
+    // boot_pgdir是内核虚拟地址
     boot_pgdir = boot_alloc_page();
     memset(boot_pgdir, 0, PGSIZE);
+    // boot_cr3是boot_pgdir对应的物理地址
     boot_cr3 = PADDR(boot_pgdir);
 
     check_pgdir();

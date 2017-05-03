@@ -54,9 +54,9 @@ void print_pgdir(void);
  * where the machine's maximum 256MB of physical memory is mapped and returns the
  * corresponding physical address.  It panics if you pass it a non-kernel virtual address.
  * */
-// 传入内核虚拟地址，返回对应的虚拟地址
+// 传入内核虚拟地址，返回对应的物理地址
 // 假如传入的是一块非内核的虚拟地址，将panic
-// 原理在于：将该虚拟地址 - 内核虚拟地址的起始地址(KERNBASE)
+// 原理在于：内核虚拟地址 - 内核虚拟地址的起始地址(KERNBASE) = 物理地址
 #define PADDR(kva) ({                                                   \
             uintptr_t __m_kva = (uintptr_t)(kva);                       \
             if (__m_kva < KERNBASE) {                                   \
@@ -69,6 +69,9 @@ void print_pgdir(void);
  * KADDR - takes a physical address and returns the corresponding kernel virtual
  * address. It panics if you pass an invalid physical address.
  * */
+// 传入物理地址，返回对应的内核虚拟地址
+// 根据地址得到页面索引，如果索引号大于页面数量就是异常的情况
+// 物理地址+KERNBASE=内核虚拟地址
 #define KADDR(pa) ({                                                    \
             uintptr_t __m_pa = (pa);                                    \
             size_t __m_ppn = PPN(__m_pa);                               \
@@ -81,6 +84,7 @@ void print_pgdir(void);
 extern struct Page *pages;
 extern size_t npage;
 
+// 传入Page指针，得到在Page数组中的索引
 static inline ppn_t
 page2ppn(struct Page *page) {
     return page - pages;
@@ -91,6 +95,7 @@ page2pa(struct Page *page) {
     return page2ppn(page) << PGSHIFT;
 }
 
+// 传入物理地址，返回对应的Page指针
 static inline struct Page *
 pa2page(uintptr_t pa) {
     if (PPN(pa) >= npage) {
@@ -99,16 +104,19 @@ pa2page(uintptr_t pa) {
     return &pages[PPN(pa)];
 }
 
+// 传入page指针，返回对应的内核虚拟地址
 static inline void *
 page2kva(struct Page *page) {
     return KADDR(page2pa(page));
 }
 
+// 传入内核虚拟地址，返回对应的Page指针
 static inline struct Page *
 kva2page(void *kva) {
     return pa2page(PADDR(kva));
 }
 
+// 根据PTE索引得到对应的Page指针
 static inline struct Page *
 pte2page(pte_t pte) {
     if (!(pte & PTE_P)) {
@@ -117,6 +125,7 @@ pte2page(pte_t pte) {
     return pa2page(PTE_ADDR(pte));
 }
 
+// 根据PDE索引得到对应的Page指针
 static inline struct Page *
 pde2page(pde_t pde) {
     return pa2page(PDE_ADDR(pde));
