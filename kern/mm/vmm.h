@@ -33,9 +33,11 @@ struct vma_struct {
 #define VM_STACK                0x00000008
 
 // the control struct for a set of vma using the same PDT
+// 管理使用同一个页目录的虚拟地址的结构体
 struct mm_struct {
     list_entry_t mmap_list;        // linear list link which sorted by start addr of vma
     struct vma_struct *mmap_cache; // current accessed vma, used for speed purpose
+    // 对应的页目标表项指针
     pde_t *pgdir;                  // the PDT of these vma
     int map_count;                 // the count of these vma
     // 用于swap管理的私有数据，其实用于指向链表头部

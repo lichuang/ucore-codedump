@@ -90,6 +90,8 @@ page2ppn(struct Page *page) {
     return page - pages;
 }
 
+// 传入page指针，返回对应的物理地址（低12位位0，即按照4096对齐的地址）
+// 原理：先计算出在Page数组的索引，再将索引值左移12位
 static inline uintptr_t
 page2pa(struct Page *page) {
     return page2ppn(page) << PGSHIFT;
@@ -153,6 +155,7 @@ page_ref_dec(struct Page *page) {
     return page->ref;
 }
 
+// 建立好的C语言的堆栈环境，见init/entry.s文件
 extern char bootstack[], bootstacktop[];
 
 #endif /* !__KERN_MM_PMM_H__ */

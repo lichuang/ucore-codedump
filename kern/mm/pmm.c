@@ -278,8 +278,10 @@ enable_paging(void) {
 //  size: memory size
 //  pa:   physical address of this memory
 //  perm: permission of this memory  
+//  将线性地址范围在[la,la+size]的内存，映射到物理地址范围在[pa,pa+size]区间
 static void
 boot_map_segment(pde_t *pgdir, uintptr_t la, size_t size, uintptr_t pa, uint32_t perm) {
+    // 这里要保证的是，la和pa对应到一个Page中的偏移量是一样的
     assert(PGOFF(la) == PGOFF(pa));
     size_t n = ROUNDUP(size + PGOFF(la), PGSIZE) / PGSIZE;
     // 计算对齐后的线性地址和物理地址
@@ -338,25 +340,32 @@ pmm_init(void) {
 
     // recursively insert boot_pgdir in itself
     // to form a virtual page table at virtual address VPT
+    // 指向boot_pgdir的物理地址，同时P且可以写
     boot_pgdir[PDX(VPT)] = PADDR(boot_pgdir) | PTE_P | PTE_W;
 
     // map all physical memory to linear memory with base linear addr KERNBASE
     //linear_addr KERNBASE~KERNBASE+KMEMSIZE = phy_addr 0~KMEMSIZE
     //But shouldn't use this map until enable_paging() & gdt_init() finished.
+    // 将线性地址范围在[KERNBASE,KERNBASE+KMEMSIZE]的内存，映射到物理地址范围在[0,KMEMSIZE]上
     boot_map_segment(boot_pgdir, KERNBASE, KMEMSIZE, 0, PTE_W);
 
     //temporary map: 
     //virtual_addr 3G~3G+4M = linear_addr 0~4M = linear_addr 3G~3G+4M = phy_addr 0~4M     
+    // 临时映射，设置完之后，线性地址空间[0,4M] = 线性地址空间[KERNBASE,KERNBASE+4M] = 物理地址空间[0,4M]
+    // 为什么是4M？因为一个page管理4M的地址空间
     boot_pgdir[0] = boot_pgdir[PDX(KERNBASE)];
 
+    // 启用页式内存管理机制
     enable_paging();
 
     //reload gdt(third time,the last time) to map all physical memory
     //virtual_addr 0~4G=liear_addr 0~4G
     //then set kernel stack(ss:esp) in TSS, setup TSS in gdt, load TSS
+    // 第二次加载gdt表
     gdt_init();
 
     //disable the map of virtual_addr 0~4M
+    // 将前面的虚拟地址范围在[0,4M]的临时映射取消
     boot_pgdir[0] = 0;
 
     //now the basic virtual memory map(see memalyout.h) is established.

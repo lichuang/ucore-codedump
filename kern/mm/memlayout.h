@@ -81,6 +81,7 @@
  * */
 #define VPT                 0xFAC00000
 
+// 内核态进程的栈页面大小
 #define KSTACKPAGE          2                           // # of pages in kernel stack
 #define KSTACKSIZE          (KSTACKPAGE * PGSIZE)       // sizeof kernel stack
 

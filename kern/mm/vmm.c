@@ -190,6 +190,7 @@ out:
     return ret;
 }
 
+// 拷贝内存数据
 int
 dup_mmap(struct mm_struct *to, struct mm_struct *from) {
     assert(to != NULL && from != NULL);

@@ -33,6 +33,7 @@
 #define SYS_lab6_set_priority 255
 
 /* SYS_fork flags */
+// 父子进程之间共享VM
 #define CLONE_VM            0x00000100  // set if VM shared between processes
 #define CLONE_THREAD        0x00000200  // thread group
 #define CLONE_FS            0x00000800  // set if shared between processes

@@ -201,19 +201,30 @@ struct taskstate {
 // use PGADDR(PDX(la), PTX(la), PGOFF(la)).
 
 // page directory index
+// 根据线性地址，得到对应页目录索引
+// 原理：将线性地址向右移22位（页目录索引偏移量在高22位），然后保留最低的10位(0x3FF就是10位全1的数字)，高22位清零
 #define PDX(la) ((((uintptr_t)(la)) >> PDXSHIFT) & 0x3FF)
 
 // page table index
+// 根据线性地址，得到对应页表项索引
+// 原理：将线性地址向右移12位，然后保留最低的10位(0x3FF就是10位全1的数字)，高22位清零
 #define PTX(la) ((((uintptr_t)(la)) >> PTXSHIFT) & 0x3FF)
 
 // page number field of address
-// 传入物理地址，返回这个地址对应的Page指针在Page数组中的索引
+// 传入线性地址，返回这个地址对应的Page指针在Page数组中的索引
+// 原理：每个Page管理4096 BYTE的数据，也就是0xFFF（12位）
+// 因此la只要右移12位，就得到在Page数组中的索引了
 #define PPN(la) (((uintptr_t)(la)) >> PTXSHIFT)
 
 // offset in page
+// 根据线性地址，得到在一个Page中的偏移量
+// 原理：每个Page管理4096 BYTE的数据，也就是0xFFF（12位）
+// 因此只保留最低12位数据就是这个地址在Page中的偏移量了
 #define PGOFF(la) (((uintptr_t)(la)) & 0xFFF)
 
 // construct linear address from indexes and offset
+// 根据传入的页目录索引(d)、页表项索引(t)，以及页内偏移量(o)构造出线性地址
+// 原理：按照线性地址的格式，将几个项目按照偏移量组织起来 
 #define PGADDR(d, t, o) ((uintptr_t)((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
 
 // address in page table or page directory entry
@@ -223,15 +234,20 @@ struct taskstate {
 #define PDE_ADDR(pde)   PTE_ADDR(pde)
 
 /* page directory and page table constants */
+// 页目录数组有多少页目录数据
 #define NPDEENTRY       1024                    // page directory entries per page directory
+// 页表项数组有多少页表项数据
 #define NPTEENTRY       1024                    // page table entries per page table
 
+// 一个page的大小
 #define PGSIZE          4096                    // bytes mapped by a page
 #define PGSHIFT         12                      // log2(PGSIZE)
 #define PTSIZE          (PGSIZE * NPTEENTRY)    // bytes mapped by a page directory entry
 #define PTSHIFT         22                      // log2(PTSIZE)
 
+// 线性地址中存储页表项索引数据的偏移量
 #define PTXSHIFT        12                      // offset of PTX in a linear address
+// 线性地址中存储页目录索引数据的偏移量
 #define PDXSHIFT        22                      // offset of PDX in a linear address
 
 /* page table/directory entry flags */

@@ -123,6 +123,7 @@ alloc_proc(void) {
         proc->mm = NULL;
         memset(&(proc->context), 0, sizeof(struct context));
         proc->tf = NULL;
+        // boot_cr3是内核态进程CR3地址，如果是用户态需要相应修改
         proc->cr3 = boot_cr3;
         proc->flags = 0;
         memset(proc->name, 0, PROC_NAME_LEN);
@@ -279,16 +280,23 @@ find_proc(int pid) {
 int
 kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) {
     struct trapframe tf;
+    // 将tf数据结构清零
     memset(&tf, 0, sizeof(struct trapframe));
+    // 代码段指向内核代码段
     tf.tf_cs = KERNEL_CS;
+    // 数据段指向内核数据段
     tf.tf_ds = tf.tf_es = tf.tf_ss = KERNEL_DS;
+    // ebx寄存器用于保存执行函数指针
     tf.tf_regs.reg_ebx = (uint32_t)fn;
+    // edx寄存器用于保存参数指针
     tf.tf_regs.reg_edx = (uint32_t)arg;
+    // eip寄存器指向kernel_thread_entry函数
     tf.tf_eip = (uint32_t)kernel_thread_entry;
     return do_fork(clone_flags | CLONE_VM, 0, &tf);
 }
 
 // setup_kstack - alloc pages with size KSTACKPAGE as process kernel stack
+// 分配内核态进程的栈
 static int
 setup_kstack(struct proc_struct *proc) {
     struct Page *page = alloc_pages(KSTACKPAGE);
@@ -306,15 +314,21 @@ put_kstack(struct proc_struct *proc) {
 }
 
 // setup_pgdir - alloc one page as PDT
+// 分配mm数据结构的PDT
 static int
 setup_pgdir(struct mm_struct *mm) {
     struct Page *page;
+    // 分配一个page
     if ((page = alloc_page()) == NULL) {
         return -E_NO_MEM;
     }
+    // 得到对应的PDE指针
     pde_t *pgdir = page2kva(page);
+    // 将内核的页目录数据拷贝过来
     memcpy(pgdir, boot_pgdir, PGSIZE);
+    // ？？？？？
     pgdir[PDX(VPT)] = PADDR(pgdir) | PTE_P | PTE_W;
+    // 保存，返回
     mm->pgdir = pgdir;
     return 0;
 }
@@ -332,14 +346,17 @@ copy_mm(uint32_t clone_flags, struct proc_struct *proc) {
     struct mm_struct *mm, *oldmm = current->mm;
 
     /* current is a kernel thread */
+    // 内核态进程mm指针为NULL，此时不需要做拷贝直接返回
     if (oldmm == NULL) {
         return 0;
     }
+    // 这个标志位表示父子进程之间共享VM，此时不需要继续做拷贝工作直接返回
     if (clone_flags & CLONE_VM) {
         mm = oldmm;
         goto good_mm;
     }
 
+    // 到了这里说明要给新的进程分配内存空间，把返回值先置为-E_NO_MEM
     int ret = -E_NO_MEM;
     if ((mm = mm_create()) == NULL) {
         goto bad_mm;
@@ -361,6 +378,7 @@ copy_mm(uint32_t clone_flags, struct proc_struct *proc) {
 good_mm:
     mm_count_inc(mm);
     proc->mm = mm;
+    // 到了这里将CR3置为这个进程的页目录指针
     proc->cr3 = PADDR(mm->pgdir);
     return 0;
 bad_dup_cleanup_mmap:
@@ -376,13 +394,19 @@ bad_mm:
 //             - setup the kernel entry point and stack of process
 static void
 copy_thread(struct proc_struct *proc, uintptr_t esp, struct trapframe *tf) {
+    // 在内核堆栈顶部分配空间做为进程的tf空间
     proc->tf = (struct trapframe *)(proc->kstack + KSTACKSIZE) - 1;
+    // 保存传入的tf数据
     *(proc->tf) = *tf;
+    // 子进程执行完do_fork函数的返回值
     proc->tf->tf_regs.reg_eax = 0;
     proc->tf->tf_esp = esp;
+    // 可以被中断
     proc->tf->tf_eflags |= FL_IF;
 
+    // eip指针用于保存上次停止执行时的下一条指令地址
     proc->context.eip = (uintptr_t)forkret;
+    // esp用于保存停止执行的堆栈地址，因为tf这里指向了内核堆栈的起始位置
     proc->context.esp = (uintptr_t)(proc->tf);
 }
 
@@ -436,6 +460,7 @@ int
 do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     int ret = -E_NO_FREE_PROC;
     struct proc_struct *proc;
+    // 首先判断进程数量
     if (nr_process >= MAX_PROCESS) {
         goto fork_out;
     }
@@ -474,6 +499,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
 	*    update step 1: set child proc's parent to current process, make sure current process's wait_state is 0
 	*    update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
     */
+    // 分配proc结构体指针
     if ((proc = alloc_proc()) == NULL) {
         goto fork_out;
     }
@@ -481,12 +507,14 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     proc->parent = current;
     assert(current->wait_state == 0);
 
+    // 创建内核栈
     if (setup_kstack(proc) != 0) {
         goto bad_fork_cleanup_proc;
     }
     if (copy_fs(clone_flags, proc) != 0) { //for LAB8
         goto bad_fork_cleanup_kstack;
     }
+    // 拷贝内存
     if (copy_mm(clone_flags, proc) != 0) {
         goto bad_fork_cleanup_fs;
     }
@@ -498,7 +526,6 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         proc->pid = get_pid();
         hash_proc(proc);
         set_links(proc);
-
     }
     local_intr_restore(intr_flag);
 

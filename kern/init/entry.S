@@ -8,6 +8,7 @@
 kern_entry:
     # reload temperate gdt (second time) to remap all physical memory
     # virtual_addr 0~4G=linear_addr&physical_addr -KERNBASE~4G-KERNBASE 
+    # 虚拟地址[0,4G] = 线性地址&物理地址 [-KERNBASE, 4G-KERNBASE]
     lgdt REALLOC(__gdtdesc)
     movl $KERNEL_DS, %eax
     movw %ax, %ds
@@ -18,6 +19,9 @@ kern_entry:
 
 relocated:
 
+    # 以下建立内核C语言的堆栈环境，范围为[0x0, 0x0 + KSTACKSIZE]
+    # 核心就是设置好EBP和ESP指针
+    # 设置完毕之后就调用kern_init函数正式进入内核的C代码中
     # set ebp, esp
     movl $0x0, %ebp
     # the kernel stack region is from bootstack -- bootstacktop,
